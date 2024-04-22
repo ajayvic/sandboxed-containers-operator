@@ -50,10 +50,12 @@ const (
 	peerpodsCMName                = "peer-pods-cm"
 	peerpodsCMAWSImageKey         = "PODVM_AMI_ID"
 	peerpodsCMAzureImageKey       = "AZURE_IMAGE_ID"
+	peerpodsLibvirtImageKey       = "LIBVIRT_POOL_UUID"
 	fipsCMKey                     = "BOOT_FIPS"
 	procFIPS                      = "/proc/sys/crypto/fips_enabled"
 	AWSProvider                   = "aws"
 	AzureProvider                 = "azure"
+	LibvirtProvider               = "libvirt"
 	peerpodsImageJobsPathLocation = "/config/peerpods/podvm"
 )
 
@@ -191,6 +193,7 @@ func ImageDelete(c client.Client) (int, error) {
 }
 
 func newImageGenerator(client client.Client) (*ImageGenerator, error) {
+	fmt.Println("triggering NewImageGenerator")
 	ig := &ImageGenerator{
 		client: client,
 	}
@@ -216,7 +219,9 @@ func newImageGenerator(client client.Client) (*ImageGenerator, error) {
 	}
 	ig.fips = fips == 1
 
+	fmt.Println("invoking getCloudProviderFromInfra from  NewImageGenerator")
 	provider, err := getCloudProviderFromInfra(client)
+	fmt.Println("getCloudProviderFromInfra provider", provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cloud provider from infra: %v", err)
 	}
@@ -227,6 +232,10 @@ func newImageGenerator(client client.Client) (*ImageGenerator, error) {
 		ig.provider = provider
 	case AzureProvider:
 		ig.CMimageIDKey = peerpodsCMAzureImageKey
+		ig.provider = provider
+	case LibvirtProvider:
+		igLogger.Info("libvirt is our provider", "provider", ig.provider)
+		ig.CMimageIDKey = peerpodsLibvirtImageKey
 		ig.provider = provider
 	default:
 		igLogger.Info("unsupported cloud provider, image creation will be disabled", "provider", ig.provider)
@@ -347,6 +356,7 @@ func (r *ImageGenerator) getPeerPodsCM() (*corev1.ConfigMap, error) {
 // cloud provider specific podvm image config is present
 // azure-podvm-image-cm.yaml for Azure
 // aws-podvm-image-cm.yaml for AWS
+// libvirt-podvm-image-cm.yaml for Libvirt
 
 func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	igLogger.Info("imageCreateJobRunner: Start")
@@ -355,6 +365,11 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	// This helps to handle the job deletion if the image ID is already set and entering here on requeue
 
 	filename := "osc-podvm-create-job.yaml"
+
+	if r.provider == LibvirtProvider {
+		igLogger.Info("Choosing osc-podvm-hpcc-upload-job.yaml")
+		filename = "osc-podvm-hpcc-upload-job.yaml"
+	}
 
 	job, err := r.createJobFromFile(filename)
 	if err != nil {
@@ -427,6 +442,7 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 // cloud provider specific podvm image config is present
 // azure-podvm-image-cm.yaml for Azure
 // aws-podvm-image-cm.yaml for AWS
+// libvirt-podvm-image-cm.yaml for Libvirt
 // Successful deletion removes the image ID from peer-pods-cm
 
 func (r *ImageGenerator) imageDeleteJobRunner() (int, error) {
@@ -540,6 +556,10 @@ func (r *ImageGenerator) validatePeerPodsConfigs() error {
 	azureSecretKeys := []string{"AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_SUBSCRIPTION_ID"}
 	// azure ConfigMap Keys
 	azureConfigMapKeys := []string{"AZURE_RESOURCE_GROUP", "AZURE_REGION", "CLOUD_PROVIDER"}
+	// libvirt Secret Keys
+	libvirtSecretKeys := []string{"CLOUD_PROVIDER", "LIBVIRT_URI", "LIBVIRT_POOL", "LIBVIRT_VOL_NAME"}
+	// libvirt ConfigMap Keys
+	libvirtConfigMapKeys := []string{"CLOUD_PROVIDER", "PROXY_TIMEOUT"}
 
 	// Check for each cloud provider if respective ConfigMap keys are present in the peerPodsConfigMap
 	switch r.provider {
@@ -562,6 +582,18 @@ func (r *ImageGenerator) validatePeerPodsConfigs() error {
 
 		// Check if azure ConfigMap Keys are present in the peerPodsConfigMap
 		if !checkKeysPresentAndNotEmpty(peerPodsCM.Data, azureConfigMapKeys) {
+			return fmt.Errorf("validatePeerPodsConfigs: cannot find the required keys in peer-pods-cm ConfigMap")
+		}
+
+	case "libvirt":
+		igLogger.Info("checking for libvirt keys and validating")
+		// Check if libvirt Secret Keys are present in the peerPodsSecret
+		if !checkKeysPresentAndNotEmpty(peerPodsSecret.Data, libvirtSecretKeys) {
+			return fmt.Errorf("validatePeerPodsConfigs: cannot find the required keys in peer-pods-secret Secret")
+		}
+
+		// Check if libvirt ConfigMap Keys are present in the peerPodsConfigMap
+		if !checkKeysPresentAndNotEmpty(peerPodsCM.Data, libvirtConfigMapKeys) {
 			return fmt.Errorf("validatePeerPodsConfigs: cannot find the required keys in peer-pods-cm ConfigMap")
 		}
 
@@ -611,11 +643,12 @@ func checkKeysPresentAndNotEmpty(data interface{}, keys []string) bool {
 // Function to create ConfigMap from a YAML file based on cloud provider
 // azure-podvm-image-cm.yaml for Azure
 // aws-podvm-image-cm.yaml for AWS
+// libvirt-podvm-image-cm.yaml for Libvirt
 // Returns error if the ConfigMap creation fails
 
 func (r *ImageGenerator) createImageConfigMapFromFile() error {
-	// file format: [azure|aws]-podvm-image-cm.yaml
-	// ConfigMap name: [azure|aws]-podvm-image-cm
+	// file format: [azure|aws|libvirt]-podvm-image-cm.yaml
+	// ConfigMap name: [azure|aws|libvirt]-podvm-image-cm
 
 	// Check if the ConfigMap already exists
 	// If it exists, return nil
@@ -651,6 +684,7 @@ func (r *ImageGenerator) createImageConfigMapFromFile() error {
 // Method to update image configmap with FIPS or other required values
 // azure-podvm-image-cm.yaml for Azure
 // aws-podvm-image-cm.yaml for AWS
+// libvirt-podvm-image-cm.yaml for Libvirt
 // Returns error if the update fails
 
 func (r *ImageGenerator) updateImageConfigMap() error {

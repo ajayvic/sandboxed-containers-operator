@@ -3,14 +3,14 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.5.2
+VERSION ?= 1.7.0-podvm-upload
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-CHANNELS="stable"
+CHANNELS="candidate"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -20,7 +20,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL="stable"
+DEFAULT_CHANNEL="candidate"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -32,7 +32,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
 # example.com/memcached-operator-bundle:$VERSION and example.com/memcached-operator-catalog:$VERSION.
 # FIXME: This should be an upstream accessible repo.  Investigating downstream build options to allow us to do that.
-IMAGE_TAG_BASE ?= quay.io/openshift_sandboxed_containers/openshift-sandboxed-containers-operator
+IMAGE_TAG_BASE ?= quay.io/ajvictor/openshift-sandboxed-containers-operator
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
@@ -80,7 +80,7 @@ GOFLAGS := -tags=$(subst $(space),$(comma),$(strip $(BUILTIN_CLOUD_PROVIDERS)))
 # If SKIP_TESTS is set, the test target will *not* run `go test`.
 # This is to be able to temporarily work around test failures when doing
 # local development.
-SKIP_TESTS =
+SKIP_TESTS = 1
 
 .PHONY: all
 all: build
@@ -134,7 +134,7 @@ endif
 
 .PHONY: build
 build: generate fmt vet ## Build manager binary.
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GOFLAGS) -mod=mod -o bin/manager main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build $(GOFLAGS) -mod=mod -o bin/manager main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.

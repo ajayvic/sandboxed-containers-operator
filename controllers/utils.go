@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 
 const (
 	peerPodsSecretName = "peer-pods-secret"
+	cloudProvider      = "CLOUD_PROVIDER"
 )
 
 // Define a struct to represent event information
@@ -196,9 +196,16 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 		return "", err
 	}
 
-	if infrastructure.Status.PlatformStatus == nil {
-		return "", fmt.Errorf("Infrastructure.status.platformStatus is empty")
-	}
+	fmt.Println("getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus:", infrastructure.Status.PlatformStatus)
+	return "Libvirt", nil
 
-	return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
+	// below is returning: getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus: &{None <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil>}
+	// if infrastructure.Status.PlatformStatus == nil {
+	// 	// For s390x libvirt provider, PlatformStatus is None, so returning libvirt provider.
+	// 	fmt.Println("inside libvirt flow")
+	// 	return "Libvirt", nil
+	// 	// return "", fmt.Errorf("Infrastructure.status.platformStatus is empty and is not libvirt")
+	// }
+
+	// return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
 }

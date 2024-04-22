@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hpcc-podvm-image-upload
+  namespace: openshift-sandboxed-containers-operator
+spec:
+  template:
+    metadata:
+      name: hpcc-podvm-image-upload
+    spec:
+      containers:
+        - name: upload
+          image: quay.io/ajvictor/podvm-libvirt-upload:latest
+          envFrom:
+            - secretRef:
+                name: peer-pods-secret
+                valueFrom:
+                  secretKeyRef:
+                    key: LIBVIRT_URI
+                    name: LIBVIRT_URI
+            - secretRef:
+                name: peer-pods-secret
+                valueFrom:
+                  secretKeyRef:
+                    key: LIBVIRT_VOL_NAME
+                    name: LIBVIRT_VOL_NAME
+            - secretRef:
+                name: peer-pods-secret
+                valueFrom:
+                  secretKeyRef:
+                    key: LIBVIRT_POOL
+                    name: LIBVIRT_POOL
+          volumeMounts:
+            - mountPath: "/root/.ssh/"
+              name: ssh-key-secret
+              readOnly: true
+      volumes:
+        - name: image
+          emptyDir: {}
+        - name: ssh-key-secret
+          secret:
+            secretName: ssh-key-secret
+            items:
+            - key: id_rsa
+              path: "id_rsa"
+            defaultMode: 0400
+      restartPolicy: Never
+

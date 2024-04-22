@@ -8,6 +8,7 @@ The configuration used for the podvm image generation is available in the follow
 
 - Azure: `azure-podvm-image-cm`
 - AWS: `aws-podvm-image-cm`
+- Libvirt: `libvirt-podvm-image-cm`
 
 Depending on the cloud provider (eg. aws or azure) create the respective
 configmaps. Please review and modify the settings in the configMap as required.
@@ -22,6 +23,12 @@ For Azure
 
 ```sh
 kubectl apply -f azure-podvm-image-cm.yaml
+```
+
+For Libvirt
+
+```sh
+kubectl apply -f libvirt-podvm-image-cm.yaml
 ```
 
 ## Create podvm image

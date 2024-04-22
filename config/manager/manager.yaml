@@ -79,7 +79,7 @@ spec:
             - name: RELATED_IMAGE_KATA_MONITOR
               value: registry.redhat.io/openshift-sandboxed-containers/osc-monitor-rhel9:latest
             - name: SANDBOXED_CONTAINERS_EXTENSION
-              value: kata-containers
+              value: sandboxed-containers
             - name: RELATED_IMAGE_CAA
               value: registry.redhat.io/openshift-sandboxed-containers/osc-cloud-api-adaptor-rhel9:latest
             - name: RELATED_IMAGE_PEERPODS_WEBHOOK
