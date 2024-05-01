@@ -52,6 +52,7 @@ const (
 	peerpodsCMAzureImageKey       = "AZURE_IMAGE_ID"
 	peerpodsLibvirtImageKey       = "LIBVIRT_POOL_UUID"
 	fipsCMKey                     = "BOOT_FIPS"
+	HyperProtectEnabled           = "ENABLE_HP"
 	procFIPS                      = "/proc/sys/crypto/fips_enabled"
 	AWSProvider                   = "aws"
 	AzureProvider                 = "azure"
@@ -234,7 +235,7 @@ func newImageGenerator(client client.Client) (*ImageGenerator, error) {
 		ig.CMimageIDKey = peerpodsCMAzureImageKey
 		ig.provider = provider
 	case LibvirtProvider:
-		igLogger.Info("libvirt is our provider", "provider", ig.provider)
+		igLogger.Info("libvirt is our provider", "provider", provider)
 		ig.CMimageIDKey = peerpodsLibvirtImageKey
 		ig.provider = provider
 	default:
@@ -279,6 +280,11 @@ func (r *ImageGenerator) createJobFromFile(jobFileName string) (*batchv1.Job, er
 		} else if r.provider == AWSProvider {
 			job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
 				Name:  "AMI_ID",
+				Value: imageId,
+			})
+		} else if r.provider == LibvirtProvider {
+			job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "LIBVIRT_POOL_UUID",
 				Value: imageId,
 			})
 		}
@@ -367,8 +373,15 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	filename := "osc-podvm-create-job.yaml"
 
 	if r.provider == LibvirtProvider {
-		igLogger.Info("Choosing osc-podvm-hpcc-upload-job.yaml")
-		filename = "osc-podvm-hpcc-upload-job.yaml"
+		igLogger.Info("checking if hyperprotect is enabled.")
+		hyperProtect, err := isHyperProtectEnabled(r.client)
+		if err != nil {
+			igLogger.Info("error checking for hyperprotect, skipping.", "err", err)
+		} else {
+			if hyperProtect {
+				filename = "osc-podvm-hpcc-upload-job.yaml"
+			}
+		}
 	}
 
 	job, err := r.createJobFromFile(filename)

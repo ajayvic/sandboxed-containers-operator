@@ -197,7 +197,7 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 	}
 
 	fmt.Println("getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus:", infrastructure.Status.PlatformStatus)
-	return "Libvirt", nil
+	return "libvirt", nil
 
 	// below is returning: getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus: &{None <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil>}
 	// if infrastructure.Status.PlatformStatus == nil {
@@ -208,4 +208,24 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 	// }
 
 	// return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
+}
+
+func isHyperProtectEnabled(c client.Client) (bool, error) {
+	libvirtPodConfigs := &corev1.ConfigMap{}
+
+	err := c.Get(context.TODO(), types.NamespacedName{
+		Name:      "libvirt-podvm-image-cm",
+		Namespace: "openshift-sandboxed-containers-operator",
+	}, libvirtPodConfigs)
+
+	if err != nil {
+		return false, err
+	}
+
+	if libvirtPodConfigs.Data[HyperProtectEnabled] != "true" {
+		igLogger.Info("Hyper Protect is not enabled.")
+		return false, nil
+	}
+
+	return true, nil
 }

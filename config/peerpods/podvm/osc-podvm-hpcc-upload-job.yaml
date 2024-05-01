@@ -10,7 +10,18 @@ spec:
     spec:
       containers:
         - name: upload
-          image: quay.io/ajvictor/podvm-libvirt-upload:latest
+          image: quay.io/ajvictor/podvm-libvirt-upload:v2
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting to upload the image."
+              echo $LIBVIRT_VOL_NAME && echo $LIBVIRT_POOL && echo $LIBVIRT_URI && echo $PODVM_IMAGE_PATH
+              virsh -d 0 -c $LIBVIRT_URI vol-upload --vol $LIBVIRT_VOL_NAME $PODVM_IMAGE_PATH --pool $LIBVIRT_POOL --sparse
+              echo "Uploaded the image successfully"
+              # Update peer-pods-cm configmap with the libvirt pool uuid.
+              LIBVIRT_POOL_UUID=$(virsh pool-list --name --uuid | grep $LIBVIRT_POOL | awk '{print $1}')
+              echo "Updating peer-pods-cm configmap with IMAGE_ID=${LIBVIRT_POOL_UUID}"
+              kubectl patch configmap peer-pods-cm -n openshift-sandboxed-containers-operator --type merge -p "{\"data\":{\"LIBVIRT_POOL_UUID\":\"${LIBVIRT_POOL_UUID}\"}}"
           envFrom:
             - secretRef:
                 name: peer-pods-secret
@@ -35,8 +46,6 @@ spec:
               name: ssh-key-secret
               readOnly: true
       volumes:
-        - name: image
-          emptyDir: {}
         - name: ssh-key-secret
           secret:
             secretName: ssh-key-secret
@@ -45,4 +54,3 @@ spec:
               path: "id_rsa"
             defaultMode: 0400
       restartPolicy: Never
-
