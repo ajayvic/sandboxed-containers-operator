@@ -52,7 +52,10 @@ const (
 	peerpodsCMAzureImageKey       = "AZURE_IMAGE_ID"
 	peerpodsLibvirtImageKey       = "LIBVIRT_POOL_UUID"
 	fipsCMKey                     = "BOOT_FIPS"
-	HyperProtectEnabled           = "ENABLE_HP"
+	LibvirtImageType              = "LIBVIRT_IMAGE_TYPE"
+	LibvirtImageSource            = "LIBVIRT_IMAGE_SOURCE"
+	LibvirtImagePath              = "LIBVIRT_PODVM_IMAGE_PATH"
+	preBuiltLibvirtImageType      = "pre-built"
 	procFIPS                      = "/proc/sys/crypto/fips_enabled"
 	AWSProvider                   = "aws"
 	AzureProvider                 = "azure"
@@ -366,6 +369,7 @@ func (r *ImageGenerator) getPeerPodsCM() (*corev1.ConfigMap, error) {
 
 func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	igLogger.Info("imageCreateJobRunner: Start")
+	var job *batchv1.Job
 
 	// We create the job first irrespective of the image ID being set or not
 	// This helps to handle the job deletion if the image ID is already set and entering here on requeue
@@ -373,21 +377,35 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	filename := "osc-podvm-create-job.yaml"
 
 	if r.provider == LibvirtProvider {
-		igLogger.Info("checking if hyperprotect is enabled.")
-		hyperProtect, err := isHyperProtectEnabled(r.client)
+		igLogger.Info("Checking the LIBVIRT_IMAGE_TYPE.")
+		imageType, imageSource, podvmImagePath, err := getImageInfo(r.client)
 		if err != nil {
-			igLogger.Info("error checking for hyperprotect, skipping.", "err", err)
-		} else {
-			if hyperProtect {
-				filename = "osc-podvm-hpcc-upload-job.yaml"
-			}
+			igLogger.Info("error checking for imageType, skipping.", "err", err)
 		}
-	}
 
-	job, err := r.createJobFromFile(filename)
-	if err != nil {
-		igLogger.Info("error creating the image creation job object from yaml file", "err", err)
-		return ImageCreationFailed, ErrCreatingImageJob
+		switch imageType {
+		case preBuiltLibvirtImageType:
+			filename = "osc-podvm-upload-job.yaml"
+			job, err = r.createJobFromFile(filename)
+			if err != nil {
+				igLogger.Info("error creating the image creation job object from yaml file", "err", err)
+				return ImageCreationFailed, ErrCreatingImageJob
+			}
+
+			igLogger.Info("Using the pre-built libvirt image: ", imageSource)
+			job.Spec.Template.Spec.Containers[0].Image = imageSource
+			job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+				Name:  "PODVM_IMAGE_PATH",
+				Value: podvmImagePath,
+			})
+		default:
+			job, err = r.createJobFromFile(filename)
+			if err != nil {
+				igLogger.Info("error creating the image creation job object from yaml file", "err", err)
+				return ImageCreationFailed, ErrCreatingImageJob
+			}
+			igLogger.Info("imageType not set, using default filename.")
+		}
 	}
 
 	// Handle job deletion if the image ID is already set and entering here on requeue
@@ -403,7 +421,7 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	}
 
 	// Create the job
-	if err = r.createJob(job); err != nil {
+	if err := r.createJob(job); err != nil {
 		igLogger.Info("error creating the image creation job", "err", err)
 		return RequeueNeeded, ErrCreatingImageJob
 	}

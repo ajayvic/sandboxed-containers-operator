@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -210,22 +211,28 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 	// return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
 }
 
-func isHyperProtectEnabled(c client.Client) (bool, error) {
-	libvirtPodConfigs := &corev1.ConfigMap{}
+// method to check for the libvirt provider's image type and other info.
+func getImageInfo(c client.Client) (string, string, string, error) {
+	peerPodsSecret := &corev1.Secret{}
 
 	err := c.Get(context.TODO(), types.NamespacedName{
-		Name:      "libvirt-podvm-image-cm",
+		Name:      peerPodsSecretName,
 		Namespace: "openshift-sandboxed-containers-operator",
-	}, libvirtPodConfigs)
+	}, peerPodsSecret)
 
 	if err != nil {
-		return false, err
+		return "", "", "", err
 	}
 
-	if libvirtPodConfigs.Data[HyperProtectEnabled] != "true" {
-		igLogger.Info("Hyper Protect is not enabled.")
-		return false, nil
+	if peerPodsSecret.Data[LibvirtImageType] != nil {
+		imageType := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageType]))
+		igLogger.Info("LIBVIRT_IMAGE_TYPE is set as: ", imageType)
+
+		imageSource := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageSource]))
+		podvmImagePath := strings.ToLower(string(peerPodsSecret.Data[LibvirtImagePath]))
+		igLogger.Info("LIBVIRT_IMAGE_SOURCE is set as: ", imageSource, "\nLIBVIRT_PODVM_IMAGE_PATH is set as: ", podvmImagePath)
+		return imageType, imageSource, podvmImagePath, nil
 	}
 
-	return true, nil
+	return "", "", "", nil
 }
