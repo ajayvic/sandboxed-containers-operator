@@ -198,17 +198,18 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 	}
 
 	fmt.Println("getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus:", infrastructure.Status.PlatformStatus)
-	return "libvirt", nil
-
 	// below is returning: getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus: &{None <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil> <nil>}
-	// if infrastructure.Status.PlatformStatus == nil {
-	// 	// For s390x libvirt provider, PlatformStatus is None, so returning libvirt provider.
-	// 	fmt.Println("inside libvirt flow")
-	// 	return "Libvirt", nil
-	// 	// return "", fmt.Errorf("Infrastructure.status.platformStatus is empty and is not libvirt")
-	// }
+	if infrastructure.Status.PlatformStatus == nil {
+		// For libvirt provider, PlatformStatus.Type is empty string, so returning libvirt provider.
+		fmt.Println("getCloudProviderFromInfra -- infrastructure.Status.PlatformStatus:", infrastructure.Status.PlatformStatus.Type)
+		if infrastructure.Status.PlatformStatus.Type == "" {
+			fmt.Println("inside libvirt flow")
+			return "libvirt", nil
+		}
+		return "", fmt.Errorf("Infrastructure.status.platformStatus is empty and is not libvirt")
+	}
 
-	// return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
+	return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
 }
 
 // method to check for the libvirt provider's image type and other info.
@@ -226,11 +227,11 @@ func getImageInfo(c client.Client) (string, string, string, error) {
 
 	if peerPodsSecret.Data[LibvirtImageType] != nil {
 		imageType := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageType]))
-		igLogger.Info("LIBVIRT_IMAGE_TYPE is set as: ", imageType)
+		fmt.Println("LIBVIRT_IMAGE_TYPE is set as: ", imageType)
 
 		imageSource := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageSource]))
 		podvmImagePath := strings.ToLower(string(peerPodsSecret.Data[LibvirtImagePath]))
-		igLogger.Info("LIBVIRT_IMAGE_SOURCE is set as: ", imageSource, "\nLIBVIRT_PODVM_IMAGE_PATH is set as: ", podvmImagePath)
+		fmt.Println("LIBVIRT_IMAGE_SOURCE is set as: ", imageSource, "\nLIBVIRT_PODVM_IMAGE_PATH is set as: ", podvmImagePath)
 		return imageType, imageSource, podvmImagePath, nil
 	}
 

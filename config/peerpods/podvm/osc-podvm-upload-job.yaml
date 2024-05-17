@@ -10,20 +10,24 @@ spec:
     spec:
       containers:
         - name: upload
-          image: quay.io/ajvictor/podvm-libvirt-upload:v3
+          image: quay.io/ajvictor/podvm-libvirt-upload:v5
           command: ["/bin/sh", "-c"]
           args:
             - |
-              echo "Checksum"
+              echo "Checksum of the PodVM image"
               sha256sum $PODVM_IMAGE_PATH
+              echo "LIBVIRT_VOL_NAME: $LIBVIRT_VOL_NAME" && echo "LIBVIRT_POOL: $LIBVIRT_POOL" && echo "LIBVIRT_URI: $LIBVIRT_URI" && echo "PODVM_IMAGE_PATH: $PODVM_IMAGE_PATH"
               echo "Starting to upload the image."
-              echo $LIBVIRT_VOL_NAME && echo $LIBVIRT_POOL && echo $LIBVIRT_URI && echo $PODVM_IMAGE_PATH
               virsh -d 0 -c $LIBVIRT_URI vol-upload --vol $LIBVIRT_VOL_NAME $PODVM_IMAGE_PATH --pool $LIBVIRT_POOL --sparse
-              echo "Uploaded the image successfully"
-              # Update peer-pods-cm configmap with the libvirt pool uuid.
-              LIBVIRT_POOL_UUID=$(virsh -d 0 -c $LIBVIRT_URI pool-list --name --uuid | grep $LIBVIRT_POOL | awk '{print $1}')
-              echo "Updating peer-pods-cm configmap with IMAGE_ID=${LIBVIRT_POOL_UUID}"
-              kubectl patch configmap peer-pods-cm -n openshift-sandboxed-containers-operator --type merge -p "{\"data\":{\"LIBVIRT_POOL_UUID\":\"${LIBVIRT_POOL_UUID}-hyperprotect\"}}"
+              if [ $? -eq 0 ]; then
+                echo "Uploaded the image successfully"
+                # Update peer-pods-cm configmap with the libvirt pool uuid.
+                LIBVIRT_POOL_UUID=$(virsh -d 0 -c $LIBVIRT_URI pool-list --name --uuid | grep $LIBVIRT_POOL | awk '{print $1}')
+                echo "Updating peer-pods-cm configmap with IMAGE_ID=${LIBVIRT_POOL_UUID}"
+                kubectl patch configmap peer-pods-cm -n openshift-sandboxed-containers-operator --type merge -p "{\"data\":{\"LIBVIRT_POOL_UUID\":\"${LIBVIRT_POOL_UUID}-prebuilt\\"}}"
+              else
+                  echo "Couldn't upload the image."
+              fi
           envFrom:
             - secretRef:
                 name: peer-pods-secret

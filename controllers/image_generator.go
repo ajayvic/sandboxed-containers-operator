@@ -375,36 +375,36 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	// This helps to handle the job deletion if the image ID is already set and entering here on requeue
 
 	filename := "osc-podvm-create-job.yaml"
+	job, err := r.createJobFromFile(filename)
+	if err != nil {
+		igLogger.Info("error creating the image creation job object from yaml file", "err", err)
+		return ImageCreationFailed, ErrCreatingImageJob
+	}
 
 	if r.provider == LibvirtProvider {
 		igLogger.Info("Checking the LIBVIRT_IMAGE_TYPE.")
 		imageType, imageSource, podvmImagePath, err := getImageInfo(r.client)
 		if err != nil {
 			igLogger.Info("error checking for imageType, skipping.", "err", err)
-		}
+		} else {
+			switch imageType {
+			case preBuiltLibvirtImageType:
+				filename = "osc-podvm-upload-job.yaml"
+				job, err = r.createJobFromFile(filename)
+				if err != nil {
+					igLogger.Info("error creating the image creation job object from yaml file", "err", err)
+					return ImageCreationFailed, ErrCreatingImageJob
+				}
 
-		switch imageType {
-		case preBuiltLibvirtImageType:
-			filename = "osc-podvm-upload-job.yaml"
-			job, err = r.createJobFromFile(filename)
-			if err != nil {
-				igLogger.Info("error creating the image creation job object from yaml file", "err", err)
-				return ImageCreationFailed, ErrCreatingImageJob
+				fmt.Println("Using the pre-built libvirt image: ", imageSource)
+				job.Spec.Template.Spec.Containers[0].Image = imageSource
+				job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+					Name:  "PODVM_IMAGE_PATH",
+					Value: podvmImagePath,
+				})
+			default:
+				igLogger.Info("imageType not set, using default job.")
 			}
-
-			igLogger.Info("Using the pre-built libvirt image: ", imageSource)
-			job.Spec.Template.Spec.Containers[0].Image = imageSource
-			job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
-				Name:  "PODVM_IMAGE_PATH",
-				Value: podvmImagePath,
-			})
-		default:
-			job, err = r.createJobFromFile(filename)
-			if err != nil {
-				igLogger.Info("error creating the image creation job object from yaml file", "err", err)
-				return ImageCreationFailed, ErrCreatingImageJob
-			}
-			igLogger.Info("imageType not set, using default filename.")
 		}
 	}
 
