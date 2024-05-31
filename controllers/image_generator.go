@@ -57,6 +57,7 @@ const (
 	LibvirtImageSource            = "LIBVIRT_IMAGE_SOURCE"
 	LibvirtImagePath              = "LIBVIRT_PODVM_IMAGE_PATH"
 	preBuiltLibvirtImageType      = "pre-built"
+	operatorLibvirtImageType      = "operator-built"
 	procFIPS                      = "/proc/sys/crypto/fips_enabled"
 	AWSProvider                   = "aws"
 	AzureProvider                 = "azure"
@@ -392,6 +393,24 @@ func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 		} else {
 			switch imageType {
 			case preBuiltLibvirtImageType:
+				igLogger.Info("Image Type is set to pre-built, using the existing image.")
+				filename = "osc-podvm-upload-job.yaml"
+				job, err = r.createJobFromFile(filename)
+				if err != nil {
+					igLogger.Info("error creating the image creation job object from yaml file", "err", err)
+					return ImageCreationFailed, ErrCreatingImageJob
+				}
+
+				fmt.Println("Using the pre-built libvirt image: ", imageSource)
+				job.Spec.Template.Spec.Containers[0].Image = imageSource
+				job.Spec.Template.Spec.Containers[0].Env = append(job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+					Name:  "PODVM_IMAGE_PATH",
+					Value: podvmImagePath,
+				})
+			case operatorLibvirtImageType:
+				igLogger.Info("Image Type is set to operator-built, starting to build the image.")
+			case "both":
+				igLogger.Info("Image Type is set to pre-built, using the existing image.")
 				filename = "osc-podvm-upload-job.yaml"
 				job, err = r.createJobFromFile(filename)
 				if err != nil {

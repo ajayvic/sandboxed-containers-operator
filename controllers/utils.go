@@ -202,6 +202,9 @@ func getImageInfo(c client.Client) (string, string, string, error) {
 		return "", "", "", err
 	}
 
+	preBuilt := peerPodsSecret.Data["PRE-BUILT_LIBVIRT_POOL"]
+	operatorBuilt := peerPodsSecret.Data["OPERATOR-BUILT_LIBVIRT_POOL"]
+
 	if peerPodsSecret.Data[LibvirtImageType] != nil {
 		imageType := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageType]))
 		fmt.Println("LIBVIRT_IMAGE_TYPE is set as: ", imageType)
@@ -210,6 +213,18 @@ func getImageInfo(c client.Client) (string, string, string, error) {
 		podvmImagePath := strings.ToLower(string(peerPodsSecret.Data[LibvirtImagePath]))
 		fmt.Println("LIBVIRT_IMAGE_SOURCE is set as: ", imageSource, "\nLIBVIRT_PODVM_IMAGE_PATH is set as: ", podvmImagePath)
 		return imageType, imageSource, podvmImagePath, nil
+	} else if preBuilt != nil && operatorBuilt != nil {
+		imageSource := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageSource]))
+		podvmImagePath := strings.ToLower(string(peerPodsSecret.Data[LibvirtImagePath]))
+		fmt.Println("PRE-BUILT_LIBVIRT_IMAGE_SOURCE is set as: ", imageSource, "\nPRE-BUILT_LIBVIRT_PODVM_IMAGE_PATH is set as: ", podvmImagePath)
+		return "both", imageSource, podvmImagePath, nil
+	} else if preBuilt != nil {
+		imageSource := strings.ToLower(string(peerPodsSecret.Data[LibvirtImageSource]))
+		podvmImagePath := strings.ToLower(string(peerPodsSecret.Data[LibvirtImagePath]))
+		fmt.Println("LIBVIRT_IMAGE_SOURCE is set as: ", imageSource, "\nLIBVIRT_PODVM_IMAGE_PATH is set as: ", podvmImagePath)
+		return preBuiltLibvirtImageType, imageSource, podvmImagePath, nil
+	} else if operatorBuilt != nil {
+		return operatorLibvirtImageType, "", "", nil
 	}
 
 	return "", "", "", nil
