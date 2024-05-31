@@ -229,3 +229,15 @@ func getImageInfo(c client.Client) (string, string, string, error) {
 
 	return "", "", "", nil
 }
+
+// Method to get cluster id from ClusterVersion object
+func getClusterID(c client.Client) (string, error) {
+	clusterVersion := &configv1.ClusterVersion{}
+	err := c.Get(context.TODO(), types.NamespacedName{Name: "version"}, clusterVersion)
+	if err != nil {
+		return "", err
+	}
+
+	// Return first 8 characters of the cluster id
+	return string(clusterVersion.Spec.ClusterID[:8]), nil
+}

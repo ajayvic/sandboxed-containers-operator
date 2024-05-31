@@ -36,7 +36,6 @@ import (
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	mcfgconsts "github.com/openshift/machine-config-operator/pkg/daemon/constants"
 	kataconfigurationv1 "github.com/openshift/sandboxed-containers-operator/api/v1"
-	"github.com/openshift/sandboxed-containers-operator/internal/featuregates"
 	corev1 "k8s.io/api/core/v1"
 	nodeapi "k8s.io/api/node/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -61,8 +60,7 @@ type KataConfigOpenShiftReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	kataConfig   *kataconfigurationv1.KataConfig
-	FeatureGates *featuregates.FeatureGates
+	kataConfig *kataconfigurationv1.KataConfig
 }
 
 const (
@@ -88,7 +86,7 @@ const (
 // +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=daemonsets/finalizers,resourceNames=manager-role,verbs=update
 // +kubebuilder:rbac:groups=node.k8s.io,resources=runtimeclasses,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="";machineconfiguration.openshift.io,resources=nodes;machineconfigs;machineconfigpools;containerruntimeconfigs;pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use;get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;update
@@ -123,8 +121,10 @@ func (r *KataConfigOpenShiftReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	if r.FeatureGates.IsEnabled(ctx, "timeTravel") {
-		r.Log.Info("TimeTravel feature is enabled. Performing feature-specific logic...")
+	err = r.processFeatureGates()
+	if err != nil {
+		r.Log.Info("Unable to process feature gates", "err", err)
+		return ctrl.Result{}, err
 	}
 
 	return func() (ctrl.Result, error) {
