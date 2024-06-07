@@ -161,6 +161,42 @@ func getPeerPodsSecret(c client.Client) (*corev1.Secret, error) {
 	return peerPodsSecret, nil
 }
 
+// Method to get libvirt-podvm-image-cm object
+func getLibvirtPodVMImageCM(c client.Client) (*corev1.ConfigMap, error) {
+	peerPodsLibvirtCM := &corev1.ConfigMap{}
+
+	err := c.Get(context.TODO(), types.NamespacedName{
+		Name:      peerpodsLibvirtCMName,
+		Namespace: OperatorNamespace,
+	}, peerPodsLibvirtCM)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return peerPodsLibvirtCM, nil
+}
+
+// method to check for the libvirt provider's image type and other info.
+func getImageInfo(c client.Client) (string, string, string, error) {
+	peerPodsLibvirtCM, err := getLibvirtPodVMImageCM(c)
+	if err != nil || peerPodsLibvirtCM == nil {
+		return "", "", "", fmt.Errorf("peerPodsLibvirtCM: %v", err)
+	}
+
+	if peerPodsLibvirtCM.Data[LibvirtImageType] == preBuiltLibvirtImageType {
+		if peerPodsLibvirtCM.Data[LibvirtImageSource] != "" || peerPodsLibvirtCM.Data[LibvirtImageSource] != "" {
+			imageType := strings.ToLower(string(peerPodsLibvirtCM.Data[LibvirtImageType]))
+			imageSource := strings.ToLower(string(peerPodsLibvirtCM.Data[LibvirtImageSource]))
+			imagePath := strings.ToLower(string(peerPodsLibvirtCM.Data[LibvirtImagePath]))
+			return imageType, imageSource, imagePath, nil
+		} else {
+			return peerPodsLibvirtCM.Data[LibvirtImageType], "", "", fmt.Errorf("missing params on libvirt-podvm-image-cm")
+		}
+	} // else condition for operator built images and others.
+	return peerPodsLibvirtCM.Data[LibvirtImageType], "", "", nil
+}
+
 // Method to get cloud provider from infrastructure (lowercase)
 func getCloudProviderFromInfra(c client.Client) (string, error) {
 	infrastructure := &configv1.Infrastructure{}
@@ -169,8 +205,8 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 		return "", err
 	}
 
-	if infrastructure.Status.PlatformStatus == nil {
-		return "", fmt.Errorf("Infrastructure.status.platformStatus is empty")
+	if infrastructure.Status.PlatformStatus.Type == "None" {
+		return "libvirt", nil
 	}
 
 	return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
