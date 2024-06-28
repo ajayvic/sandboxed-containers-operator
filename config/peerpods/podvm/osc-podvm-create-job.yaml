@@ -74,6 +74,13 @@ spec:
                     key: LIBVIRT_POOL
                     name: LIBVIRT_POOL
                 optional: true
+            - secretRef:
+                name: peer-pods-secret
+                valueFrom:
+                  secretKeyRef:
+                    key: REDHAT_OFFLINE_TOKEN
+                    name: REDHAT_OFFLINE_TOKEN
+                optional: true
           command: ["/podvm-builder.sh", "create"]
           volumeMounts:
             - name: payload

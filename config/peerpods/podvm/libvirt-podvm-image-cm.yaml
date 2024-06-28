@@ -19,9 +19,11 @@ data:
   DOWNLOAD_SOURCES: "no"
   CONFIDENTIAL_COMPUTE_ENABLED: "no"
 
-  # Livirt specific
+  # Libvirt specific
   ORG_ID: ""
   ACTIVATION_KEY: ""
+  OS_VERSION: ""
+
   YQ_VERSION : "v4.35.1"
   YQ_CHECKSUM: "sha256:4e6324d08630e7df733894a11830412a43703682d65a76f1fc925aac08268a45"
   ARCH: "s390x"

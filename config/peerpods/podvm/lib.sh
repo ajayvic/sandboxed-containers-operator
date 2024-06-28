@@ -183,6 +183,26 @@ function prepare_source_code() {
     fi
 }
 
+function download_rhel_kvm_guest_qcow2() {
+    # Define the API endpoints
+    TOKEN_GENERATOR_URI=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+    IMAGES_URI=https://api.access.redhat.com/management/v1/images/rhel/$OS_VERSION/s390x
+    
+    filename="rhel-$OS_VERSION-s390x-kvm.qcow2" 
+
+    token=$(curl $TOKEN_GENERATOR_URI \
+        -d grant_type=refresh_token -d client_id=rhsm-api -d refresh_token=$REDHAT_OFFLINE_TOKEN | jq --raw-output .access_token)
+    images=$(curl -X 'GET' $IMAGES_URI \
+        -H 'accept: application/json' -H "Authorization: Bearer $token" | jq )
+    
+    download_href=$(echo $images | jq -r --arg fn "$filename" '.body[] | select(.filename == $fn) | .downloadHref')
+
+    download_url=$(curl -X 'GET' ${download_href} \
+        -H "Authorization: Bearer $token" -H 'accept: application/json' | jq -r .body.href )
+    
+    curl -X GET $download_url -H "Authorization: Bearer $token" --output rhel-$OS_VERSION-s390x-kvm.qcow2
+}
+
 # Global variables
 
 # Set global variable for the source code directory

@@ -22,6 +22,7 @@ function verify_vars() {
 
     [[ -z "${ORG_ID}" ]] && error_exit "ORG_ID is not set"
     [[ -z "${ACTIVATION_KEY}" ]] && error_exit "ACTIVATION_KEY is not set"
+    [[ -z "${OS_VERSION}" ]] && error_exit "OS_VERSION is not set"
 
     [[ -z "${PODVM_DISTRO}" ]] && error_exit "PODVM_DISTRO is not set"
     [[ -z "${ARCH}" ]] && error_exit "ARCH is not set"
@@ -59,6 +60,9 @@ function create_libvirt_image() {
 
     # Prepare the source code for building the ami
     prepare_source_code
+
+    # Download the rhel-kvm-guest qcow2 image
+    download_rhel_kvm_guest_qcow2
 
     export PODVM_DISTRO=${PODVM_DISTRO}
     export CLOUD_PROVIDER=${CLOUD_PROVIDER}
