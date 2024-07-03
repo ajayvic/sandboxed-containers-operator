@@ -17,7 +17,7 @@ spec:
         - name: regcred
       initContainers:
         - name: copy
-          image: quay.io/suprit_iti/openshift-sandboxed-containers/osc-podvm-payload-rhel9:latest
+          image: registry.redhat.io/openshift-sandboxed-containers/osc-podvm-payload-rhel9:1.7.0
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -31,7 +31,7 @@ spec:
         - name: create
           # Binaries like kubectl, packer and yq are expected to be under /usr/local/bin
           # podvm binaries are expected to be under /payload/podvm-binaries.tar.gz
-          image: quay.io/suprit_iti/openshift-sandboxed-containers/osc-podvm-builder-rhel9:testv29
+          image: registry.redhat.io/openshift-sandboxed-containers/osc-podvm-builder-rhel9:1.7.0
           # This image contains the following
           # azure-podvm-image-handler.sh script under /scripts/azure-podvm-image-handler.sh
           # aws-podvm-image-handler.sh script under /scripts/aws-podvm-image-handler.sh
@@ -81,6 +81,7 @@ spec:
             - mountPath: "/root/.ssh/"
               name: ssh-key-secret
               readOnly: true
+              optional: true
       volumes:
         - name: payload
           emptyDir: {}
@@ -91,4 +92,5 @@ spec:
             - key: id_rsa
               path: "id_rsa"
             defaultMode: 0400
+          optional: true
       restartPolicy: Never

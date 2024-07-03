@@ -67,9 +67,7 @@ function create_libvirt_image() {
     cd "${CAA_SRC_DIR}"/src/cloud-api-adaptor/podvm || \
 	    error_exit "Failed to change directory to ${CAA_SRC_DIR}/src/cloud-api-adaptor/podvm"
     make image
-    sleep 120s
     cp -pr /src/cloud-api-adaptor/src/cloud-api-adaptor/podvm/output/*.qcow2 /src/cloud-api-adaptor/src/cloud-api-adaptor/podvm/output/libvirt-podvm.qcow2
-    sleep 120s
     #mkdir -p /src/cloud-api-adaptor/src/cloud-api-adaptor/podvm/output
     export PODVM_IMAGE_PATH=/src/cloud-api-adaptor/src/cloud-api-adaptor/podvm/output/libvirt-podvm.qcow2
     echo "LIBVIRT_VOL_NAME: $LIBVIRT_VOL_NAME" && echo "LIBVIRT_POOL: $LIBVIRT_POOL" && \
@@ -83,7 +81,6 @@ function create_libvirt_image() {
     else 
     echo "Couldn't upload the image." 
     fi
-    sleep 120s
 }
 
 

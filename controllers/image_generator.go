@@ -202,7 +202,6 @@ func ImageDelete(c client.Client) (int, error) {
 }
 
 func newImageGenerator(client client.Client) (*ImageGenerator, error) {
-	fmt.Println("triggering NewImageGenerator")
 	ig := &ImageGenerator{
 		client: client,
 	}

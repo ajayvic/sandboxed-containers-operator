@@ -168,12 +168,14 @@ func getCloudProviderFromInfra(c client.Client) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if infrastructure.Status.PlatformStatus == nil {
 		return "", fmt.Errorf("Infrastructure.status.platformStatus is empty and is not libvirt")
 	} else if string(infrastructure.Status.PlatformStatus.Type) == "None" {
 		// For libvirt provider, PlatformStatus.Type is empty string, so returning libvirt provider
 		return "libvirt", nil
 	}
+
 	return strings.ToLower(string(infrastructure.Status.PlatformStatus.Type)), nil
 }
 
@@ -193,3 +195,4 @@ func getClusterID(c client.Client) (string, error) {
 	// Return first 8 characters of the cluster id
 	return string(clusterVersion.Spec.ClusterID[:8]), nil
 }
+
