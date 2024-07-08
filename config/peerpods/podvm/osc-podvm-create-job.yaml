@@ -78,13 +78,18 @@ spec:
           volumeMounts:
             - name: payload
               mountPath: /payload
-            - mountPath: "/root/.ssh/"
-              name: ssh-key-secret
+            - name: regauth
+              mountPath: /tmp/regauth
+            - name: ssh-key-secret
+              mountPath: "/root/.ssh/"
               readOnly: true
               optional: true
       volumes:
         - name: payload
           emptyDir: {}
+        - name: regauth
+          secret:
+            secretName: auth-json-secret
         - name: ssh-key-secret
           secret:
             secretName: ssh-key-secret
