@@ -15,11 +15,10 @@ data:
   CAA_REF: "v0.8.2"
 
   # Booleans
-  INSTALL_PACKAGES: "no"
   DOWNLOAD_SOURCES: "no"
   CONFIDENTIAL_COMPUTE_ENABLED: "no"
 
-  # Livirt specific
+  # Libvirt specific
   ORG_ID: ""
   ACTIVATION_KEY: ""
   YQ_VERSION : "v4.35.1"
@@ -32,4 +31,4 @@ data:
   PODVM_TAG: "v1.0"
   PACKER_VERSION: "v1.9.4"
   RUST_VERSION: "1.72.0"
-  
+

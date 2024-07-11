@@ -29,7 +29,6 @@ RUN git clone ${CAA_SRC} -b ${CAA_REF} /src/cloud-api-adaptor
 
 ADD rhel-guest-image-9.2-20230414.17.s390x.qcow2 /src/cloud-api-adaptor/src/cloud-api-adaptor/podvm/rhel-guest-image-9.2-20230414.17.s390x.qcow2
 
-
 ADD podvm-builder.sh /podvm-builder.sh
 
 ENTRYPOINT ["/podvm-builder.sh"]
