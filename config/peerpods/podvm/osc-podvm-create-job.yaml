@@ -17,7 +17,7 @@ spec:
         - name: regcred
       initContainers:
         - name: copy
-          image: quay.io/suprit_iti/confidential-containers/podvm-binaries-rhel-s390x:sup-v1
+          image: registry.redhat.io/openshift-sandboxed-containers/osc-podvm-payload-rhel9:1.7.0
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -34,7 +34,7 @@ spec:
         - name: create
           # Binaries like kubectl, packer and yq are expected to be under /usr/local/bin
           # podvm binaries are expected to be under /payload/podvm-binaries.tar.gz
-          image: quay.io/suprit_iti/openshift-sandboxed-containers/osc-podvm-builder-rhel9:test-new-job-3
+          image: registry.redhat.io/openshift-sandboxed-containers/osc-podvm-builder-rhel9:1.7.0
           # This image contains the following
           # azure-podvm-image-handler.sh script under /scripts/azure-podvm-image-handler.sh
           # aws-podvm-image-handler.sh script under /scripts/aws-podvm-image-handler.sh
@@ -59,7 +59,9 @@ spec:
           command: ["/podvm-builder.sh", "create"]
           volumeMounts:
             - name: payload
-              mountPath: /payload          
+              mountPath: /payload
+            - name: regauth
+              mountPath: /tmp/regauth          
             - name: ssh-key-secret
               mountPath: "/root/.ssh/"
               readOnly: true
@@ -67,6 +69,9 @@ spec:
       volumes:
         - name: payload
           emptyDir: {}
+        - name: regauth
+          secret:
+            secretName: auth-json-secret
         - name: ssh-key-secret
           secret:
             secretName: ssh-key-secret
