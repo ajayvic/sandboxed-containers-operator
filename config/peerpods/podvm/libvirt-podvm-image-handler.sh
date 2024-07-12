@@ -22,6 +22,7 @@ function verify_vars() {
 
     [[ -z "${ORG_ID}" ]] && error_exit "ORG_ID is not set"
     [[ -z "${ACTIVATION_KEY}" ]] && error_exit "ACTIVATION_KEY is not set"
+    [[ -z "${OS_VERSION}" ]] && error_exit "OS_VERSION is not set"
 
     [[ -z "${PODVM_DISTRO}" ]] && error_exit "PODVM_DISTRO is not set"
     [[ -z "${ARCH}" ]] && error_exit "ARCH is not set"
@@ -48,6 +49,8 @@ function create_libvirt_image() {
     # Prepare the source code for building the ami
     prepare_source_code
 
+    download_rhel_kvm_guest_qcow2
+
     cd "${CAA_SRC_DIR}"/podvm || \
 	    error_exit "Failed to change directory to ${CAA_SRC_DIR}/podvm"
     make image
@@ -64,6 +67,34 @@ function create_libvirt_image() {
 
     # Add the ami id as annotation to peer-pods-cm configmap
     add_libvirt_uuid_annotation_to_peer_pods_cm
+}
+
+# Function to dowload the rhel base image
+
+function download_rhel_kvm_guest_qcow2() {
+    # Define the API endpoints
+    TOKEN_GENERATOR_URI=https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+    IMAGES_URI=https://api.access.redhat.com/management/v1/images/rhel/$OS_VERSION/s390x
+
+    filename="rhel-$OS_VERSION-s390x-kvm.qcow2"
+
+    token=$(curl $TOKEN_GENERATOR_URI \
+        -d grant_type=refresh_token -d client_id=rhsm-api -d refresh_token=$REDHAT_OFFLINE_TOKEN | jq --raw-output .access_token)
+    images=$(curl -X 'GET' $IMAGES_URI \
+        -H 'accept: application/json' -H "Authorization: Bearer $token" | jq )
+
+    download_href=$(echo $images | jq -r --arg fn "$filename" '.body[] | select(.filename == $fn) | .downloadHref')
+
+    download_url=$(curl -X 'GET' ${download_href} \
+        -H "Authorization: Bearer $token" -H 'accept: application/json' | jq -r .body.href )
+
+    curl -X GET $download_url -H "Authorization: Bearer $token" --output rhel-$OS_VERSION-s390x-kvm.qcow2
+
+    cp -pr rhel-$OS_VERSION-s390x-kvm.qcow2 $CAA_SRC_DIR/podvm/rhel-$OS_VERSION-s390x-kvm.qcow2
+
+    export IMAGE_URL=$CAA_SRC_DIR/podvm/rhel-$OS_VERSION-s390x-kvm.qcow2
+    export IMAGE_CHECKSUM=$(sha256sum ${IMAGE_URL} | awk '{ print $1 }')
+
 }
 
 # Function to upload the qcow2 image to volume
@@ -178,6 +209,7 @@ function install_packages(){
     subscription-manager repos --enable codeready-builder-for-rhel-9-${ARCH}-rpms; \
     dnf install -y libvirt-client; \
     dnf groupinstall -y 'Development Tools'; \
+    dnf install -y jq; \
     dnf install -y yum-utils gnupg git --allowerasing curl pkg-config clang perl libseccomp-devel gpgme-devel \
     device-mapper-devel qemu-kvm unzip wget libassuan-devel genisoimage cloud-utils-growpart cloud-init;
 
