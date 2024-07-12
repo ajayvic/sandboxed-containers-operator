@@ -48,10 +48,6 @@ function create_libvirt_image() {
     # Prepare the source code for building the ami
     prepare_source_code
 
-    #export PODVM_DISTRO=${PODVM_DISTRO}
-    #export CLOUD_PROVIDER=${CLOUD_PROVIDER}
-    #export ARCH=${ARCH}
-
     cd "${CAA_SRC_DIR}"/podvm || \
 	    error_exit "Failed to change directory to ${CAA_SRC_DIR}/podvm"
     make image
