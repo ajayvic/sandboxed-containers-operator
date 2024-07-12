@@ -48,16 +48,16 @@ function create_libvirt_image() {
     # Prepare the source code for building the ami
     prepare_source_code
 
-    export PODVM_DISTRO=${PODVM_DISTRO}
-    export CLOUD_PROVIDER=${CLOUD_PROVIDER}
-    export ARCH=${ARCH}
+    #export PODVM_DISTRO=${PODVM_DISTRO}
+    #export CLOUD_PROVIDER=${CLOUD_PROVIDER}
+    #export ARCH=${ARCH}
 
-    cd "${CAA_SRC_DIR}"/src/cloud-api-adaptor/podvm || \
-	    error_exit "Failed to change directory to ${CAA_SRC_DIR}/src/cloud-api-adaptor/podvm"
+    cd "${CAA_SRC_DIR}"/podvm || \
+	    error_exit "Failed to change directory to ${CAA_SRC_DIR}/podvm"
     make image
 
     export PODVM_IMAGE_PATH=/payload/podvm-libvirt.qcow2
-    cp -pr /src/cloud-api-adaptor/src/cloud-api-adaptor/podvm/output/*.qcow2 $PODVM_IMAGE_PATH
+    cp -pr ${CAA_SRC_DIR}/podvm/output/*.qcow2 $PODVM_IMAGE_PATH
 
     # Upload the created qcow2 to the volume
     upload_libvirt_image
@@ -111,11 +111,9 @@ function add_libvirt_uuid_annotation_to_peer_pods_cm(){
     fi
 
     # Add the libvirt pool uuid as annotation to peer-pods-cm configmap
-    # Overwrite any existing values
-    kubectl annotate --overwrite configmap peer-pods-cm -n openshift-sandboxed-containers-operator \
-        "LIBVIRT_POOL_UUID=${LIBVIRT_POOL_UUID}" ||
-        error_exit "Failed to add the libvirt uuid as annotation to peer-pods-cm configmap"
-
+    kubectl patch configmap peer-pods-cm -n openshift-sandboxed-containers-operator \
+    --type merge -p "{\"data\":{\"LIBVIRT_POOL_UUID\":\"${LIBVIRT_POOL_UUID}\"}}" ||
+        error_exit "Failed to add the libvirt uuid to peer-pods-cm configmap"
     echo "Libvirt pool id added as annotation to peer-pods-cm configmap successfully"
 
 }
@@ -196,9 +194,7 @@ function install_packages(){
     rm -f go${GO_VERSION}.linux-${ARCH/x86_64/amd64}.tar.gz
 
     export PATH="/usr/local/go/bin:${PATH}"
-
-    #Check go version
-    go version
+    export GOPATH="/src"
 
 # Install packer. Packer doesn't does not have prebuilt s390x arch binaries above Packer version 0.1.5 
     if [ "${ARCH}" == "s390x" ]; then
@@ -218,15 +214,17 @@ function install_packages(){
 
     # cloud-utils package is not available for rhel.
     git clone https://github.com/canonical/cloud-utils
-    cd cloud-utils && make install
-
-    curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain "${RUST_VERSION}"
-
-    export PATH="/root/.cargo/bin:/usr/local/go/bin:$PATH"
-    export GOPATH="/src"
+    cd cloud-utils && make install 
 
     wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${ARCH/s390x/s390_64}.zip && \
     unzip protoc-${PROTOC_VERSION}-linux-${ARCH/s390x/s390_64}.zip -d /usr/local && rm -f protoc-${PROTOC_VERSION}-linux-${ARCH/s390x/s390_64}.zip
+    
+    mkdir -p /tmp/openshift-client
+    wget https://mirror.openshift.com/pub/openshift-v4/s390x/clients/ocp/4.2.13-s390x/openshift-client-linux-4.2.13-s390x.tar.gz -P /tmp/openshift-client
+    tar -xvf /tmp/openshift-client/openshift-client-linux-4.2.13-s390x.tar.gz -C /tmp/openshift-client
+    cp -pr /tmp/openshift-client/kubectl /usr/local/bin/
+    rm -rf /tmp/openshift-client
+
 }
 # main function
 
