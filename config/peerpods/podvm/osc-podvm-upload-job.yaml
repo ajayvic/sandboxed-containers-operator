@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: podvm-image-upload
+  namespace: openshift-sandboxed-containers-operator
+spec:
+  template:
+    metadata:
+      name: podvm-image-upload
+    spec:
+      containers:
+        - name: upload
+          image: quay.io/openshift_sandboxed_containers/libvirt-podvm-image:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Checksum of the PodVM image"
+              sha256sum $PODVM_IMAGE_PATH
+              # Currently only qcow2 based PodVM images are supported for image upload.
+              if [ "$(file -b $PODVM_IMAGE_PATH)" != *QCOW2*]; then
+                echo "PodVM image is not a valid qcow2, exiting."
+                exit 1
+              fi
+              echo "Starting to upload the image."
+              virsh -c $LIBVIRT_URI vol-upload --vol $LIBVIRT_VOL_NAME $PODVM_IMAGE_PATH --pool $LIBVIRT_POOL --sparse
+              if [ $? -eq 0 ]; then
+                echo "Uploaded the image successfully"
+                # Update peer-pods-cm configmap with the libvirt pool uuid.
+                LIBVIRT_POOL_UUID=$(virsh -d 0 -c $LIBVIRT_URI pool-list --name --uuid | grep $LIBVIRT_POOL | awk '{print $1}')
+                echo "Updating peer-pods-cm configmap with IMAGE_ID=${LIBVIRT_POOL_UUID}"
+                kubectl patch configmap peer-pods-cm -n openshift-sandboxed-containers-operator --type merge -p "{\"data\":{\"LIBVIRT_POOL_UUID\":\"${LIBVIRT_POOL_UUID}-prebuilt\"}}"
+              else
+                  echo "Couldn't upload the image."
+                  exit 1
+              fi
+          envFrom:
+            - secretRef:
+                name: peer-pods-secret
+            - configMapRef:
+                name: libvirt-podvm-image-cm
+                optional: true
+          volumeMounts:
+            - mountPath: "/root/.ssh/"
+              name: ssh-key-secret
+              readOnly: true
+      volumes:
+        - name: ssh-key-secret
+          secret:
+            secretName: ssh-key-secret
+            items:
+            - key: id_rsa
+              path: "id_rsa"
+            defaultMode: 0400
+      restartPolicy: Never

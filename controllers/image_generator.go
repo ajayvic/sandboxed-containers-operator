@@ -59,6 +59,9 @@ const (
 	LibvirtProvider               = "libvirt"
 	peerpodsImageJobsPathLocation = "/config/peerpods/podvm"
 	azureImageGalleryPrefix       = "PodVMGallery"
+	preBuiltImageType             = "pre-built"
+	operatorBuiltImageType        = "operator-built"
+	libvirtPeerPodsCMName         = "libvirt-podvm-image-cm"
 )
 
 // Return values for ImageCreate and ImageDelete
@@ -73,6 +76,7 @@ const (
 	ImageDeletionInProgress
 	UnsupportedPodVMImageProvider
 	ImageCreationFailed        = -1
+	ImageUploadFailed          = -1
 	ImageDeletionFailed        = -1
 	CheckingJobStatusFailed    = -1
 	ImageCreationStatusUnknown = -2
@@ -240,7 +244,6 @@ func newImageGenerator(client client.Client) (*ImageGenerator, error) {
 		ig.CMimageIDKey = peerpodsCMAzureImageKey
 		ig.provider = provider
 	case LibvirtProvider:
-		igLogger.Info("libvirt is our provider", "provider", provider)
 		ig.CMimageIDKey = peerpodsLibvirtImageKey
 		ig.provider = provider
 	default:
@@ -397,16 +400,61 @@ func (r *ImageGenerator) getPeerPodsCM() (*corev1.ConfigMap, error) {
 
 func (r *ImageGenerator) imageCreateJobRunner() (int, error) {
 	igLogger.Info("imageCreateJobRunner: Start")
+	var job *batchv1.Job
+	var err error
 
 	// We create the job first irrespective of the image ID being set or not
 	// This helps to handle the job deletion if the image ID is already set and entering here on requeue
 
 	filename := "osc-podvm-create-job.yaml"
 
-	job, err := r.createJobFromFile(filename)
+	// Currently Image pull is only supported for Libvirt.
+	if r.provider == LibvirtProvider {
+		igLogger.Info("Checking provider's image type")
+		imageType, err := getImageType(r.client, r.provider)
+		if err != nil {
+			igLogger.Info("Error checking for imageType, skipping image upload.", "err", err)
+		} else {
+			switch imageType {
+			case preBuiltImageType:
+				igLogger.Info("Image Type is set to pre-built, using the provided image.")
+				// Provider specific ConfigMap Keys
+				configMapKeys := []string{strings.ToUpper(r.provider) + "_IMAGE_TYPE", strings.ToUpper(r.provider) + "_IMAGE_SOURCE"}
+
+				peerpodsCMName, err := getPodVMImageCM(r.client, r.provider)
+				if err != nil {
+					igLogger.Info("error getting provider specific ConfigMap", "err", err)
+					return ImageCreationFailed, ErrCreatingImageJob
+				}
+
+				// Check if libvirt ConfigMap Keys are present in the peerPodsConfigMap
+				if !checkKeysPresentAndNotEmpty(peerpodsCMName.Data, configMapKeys) {
+					igLogger.Info("Image source or Image path is not set, failing.")
+					return ImageUploadFailed, ErrCreatingImageJob
+				}
+
+				filename = "osc-podvm-upload-job.yaml"
+			case operatorBuiltImageType:
+				igLogger.Info("Image Type is set to operator-built, proceeding with image build job.")
+			default:
+				igLogger.Info("Image Type is not set, using the default create job.")
+			}
+		}
+	}
+
+	job, err = r.createJobFromFile(filename)
 	if err != nil {
 		igLogger.Info("error creating the image creation job object from yaml file", "err", err)
 		return ImageCreationFailed, ErrCreatingImageJob
+	}
+
+	if filename == "osc-podvm-upload-job.yaml" {
+		imageSource, err := getImageSource(r.client, r.provider)
+		if err != nil {
+			igLogger.Info("error getting image source from provider's configmap", "err", err)
+			return ImageUploadFailed, ErrCreatingImageJob
+		}
+		job.Spec.Template.Spec.Containers[0].Image = imageSource
 	}
 
 	// Handle job deletion if the image ID is already set and entering here on requeue
@@ -618,7 +666,6 @@ func (r *ImageGenerator) validatePeerPodsConfigs() error {
 		}
 
 	case "libvirt":
-		igLogger.Info("checking for libvirt keys and validating")
 		// Check if libvirt Secret Keys are present in the peerPodsSecret
 		if !checkKeysPresentAndNotEmpty(peerPodsSecret.Data, libvirtSecretKeys) {
 			return fmt.Errorf("validatePeerPodsConfigs: cannot find the required keys in peer-pods-secret Secret")

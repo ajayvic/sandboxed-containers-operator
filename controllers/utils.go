@@ -162,6 +162,49 @@ func getPeerPodsSecret(c client.Client) (*corev1.Secret, error) {
 	return peerPodsSecret, nil
 }
 
+// Method to get <provider>-podvm-image-cm object
+func getPodVMImageCM(c client.Client, provider string) (*corev1.ConfigMap, error) {
+	peerPodsProviderCM := &corev1.ConfigMap{}
+	peerPodsProviderCMName := provider + "-podvm-image-cm"
+
+	err := c.Get(context.TODO(), types.NamespacedName{
+		Name:      peerPodsProviderCMName,
+		Namespace: OperatorNamespace,
+	}, peerPodsProviderCM)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return peerPodsProviderCM, nil
+}
+
+// Method to get the provider's image type.
+func getImageType(c client.Client, provider string) (string, error) {
+	peerPodsProviderCM, err := getPodVMImageCM(c, provider)
+	if err != nil || peerPodsProviderCM == nil {
+		return "", fmt.Errorf("peerPodsLibvirtCM: %v", err)
+	}
+	providerImageType := strings.ToUpper(provider) + "_IMAGE_TYPE"
+
+	if peerPodsProviderCM.Data[providerImageType] == "" {
+		return "", nil
+	}
+
+	return peerPodsProviderCM.Data[providerImageType], nil
+}
+
+// Method to get the provider's image source in upload scenario.
+func getImageSource(c client.Client, provider string) (string, error) {
+	peerPodsProviderCM, err := getPodVMImageCM(c, provider)
+	if err != nil || peerPodsProviderCM == nil {
+		return "", fmt.Errorf("peerPodsProviderCM: %v", err)
+	}
+	providerImageSource := strings.ToUpper(provider) + "_IMAGE_SOURCE"
+
+	return peerPodsProviderCM.Data[providerImageSource], nil
+}
+
 // Method to get cloud provider from infrastructure (lowercase)
 func getCloudProviderFromInfra(c client.Client) (string, error) {
 	infrastructure := &configv1.Infrastructure{}

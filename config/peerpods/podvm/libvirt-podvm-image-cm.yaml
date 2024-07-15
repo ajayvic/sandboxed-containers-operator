@@ -29,3 +29,8 @@ data:
   PODVM_TAG: "v1.0"
   PACKER_VERSION: "v1.9.4"
   OS_VERSION: "9.2"
+
+  # For Pre-built PodVM images.
+  LIBVIRT_IMAGE_TYPE: "pre-built"
+  LIBVIRT_IMAGE_SOURCE: "quay.io/openshift_sandboxed_containers/libvirt-podvm-image:latest"
+  LIBVIRT_PODVM_IMAGE_PATH: "/image/podvm-s390x.qcow2"

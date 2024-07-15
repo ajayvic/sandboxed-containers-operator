@@ -1,0 +1,25 @@
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.4
+
+# This registering RHEL when building on an unsubscribed system
+# If you are running a UBI container on a registered and subscribed RHEL host, the main RHEL Server repository is enabled inside the standard UBI container
+ARG ACTIVATION_KEY
+ARG ORG_ID
+
+ARG PODVM_IMAGE_SRC
+
+ENV PODVM_IMAGE_PATH="/image/podvm.qcow2"
+
+RUN microdnf install subscription-manager -y && \
+    subscription-manager register --org=$ORG_ID --activationkey=$ACTIVATION_KEY && \
+    microdnf install -y libvirt-client
+
+RUN mkdir -p /tmp/openshift-client && \
+    wget https://mirror.openshift.com/pub/openshift-v4/s390x/clients/ocp/4.16.3/openshift-client-linux-s390x-rhel9-4.16.3.tar.gz -P /tmp/openshift-client && \
+    tar -xvf /tmp/openshift-client/openshift-client-linux-s390x-rhel9-4.16.3.tar.gz -C /tmp/openshift-client && \
+    cp -pr /tmp/openshift-client/kubectl /usr/local/bin/ && \
+    rm -rf /tmp/openshift-client
+
+
+COPY $PODVM_IMAGE_SRC $PODVM_IMAGE_PATH
+
+WORKDIR /image/
