@@ -25,4 +25,8 @@ data:
 
   # To Enable SE for IBM Z
   SE_BOOT: "true"
-  
+
+  # For Pre-built PodVM images.
+  LIBVIRT_IMAGE_TYPE: "pre-built"
+  LIBVIRT_IMAGE_SOURCE: "quay.io/openshift_sandboxed_containers/libvirt-podvm-image:latest"
+  LIBVIRT_PODVM_IMAGE_PATH: "/image/podvm-s390x.qcow2"

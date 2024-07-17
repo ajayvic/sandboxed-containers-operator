@@ -34,3 +34,26 @@ Now when you create a KataConfig with `enablePeerPods: true` with empty
 `AZURE_IMAGE_ID` or `AWS_AMI_ID` in `peer-pods-cm`, then depending on the cloud
 provider configured, the operator will create the pod VM image based on the
 provided config.
+
+## PodVM image upload configuration
+
+The PodVM image can be embedded to an OCI image and used to unwrap and upload using the uploader job. 
+This feature is currently supported only for libvirt provider.
+
+To build an OCI image with PodVM image, `Dockerfile.podvm-uploader` can be used as,
+```
+docker build -t podvm-libvirt \
+    --build-arg ACTIVATION_KEY=<rhel_activation_key_for_subscription> \
+    --build-arg ORG_ID=<org_id_for_subscription> \
+    --build-arg PODVM_IMAGE_SRC=<podvm_image_source> \
+    -f Dockerfile.podvm-uploader .
+```
+Here the `ACTIVATION_KEY` and `ORG_ID` is used for subscription and `PODVM_IMAGE_SRC` is where the `qcow2` image is present.
+
+
+Ensure that the following values are set on the `libvirt-podvm-image-cm`:
+```
+LIBVIRT_IMAGE_TYPE: "pre-built"
+LIBVIRT_IMAGE_SOURCE: "quay.io/openshift_sandboxed_containers/libvirt-podvm-image:latest"
+LIBVIRT_PODVM_IMAGE_PATH: "/image/podvm-s390x.qcow2"
+```

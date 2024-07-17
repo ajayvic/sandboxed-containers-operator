@@ -1,0 +1,28 @@
+FROM registry.access.redhat.com/ubi9/ubi:9.4
+
+ARG ACTIVATION_KEY
+ARG ORG_ID
+
+ARG PODVM_IMAGE_SRC
+
+ENV PODVM_IMAGE_PATH="/image/podvm.qcow2"
+
+# This is for registering RHEL when building on an unsubscribed system
+# If you are running a UBI container on a registered and subscribed RHEL host, the main RHEL Server repository is enabled inside the standard UBI container
+RUN if [[ -n "${ACTIVATION_KEY}" && -n "${ORG_ID}" ]]; then \
+    rm -f /etc/rhsm-host && rm -f /etc/pki/entitlement-host; \
+    subscription-manager register --org=$ORG_ID --activationkey=$ACTIVATION_KEY; \
+    fi
+
+RUN dnf install -y libvirt-client openssh-clients wget file
+
+RUN mkdir -p /tmp/openshift-client && \
+    wget https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/4.16.3/openshift-client-linux-$(uname -m)-rhel9-4.16.3.tar.gz -P /tmp/openshift-client && \
+    tar -xvf /tmp/openshift-client/openshift-client-linux-$(uname -m)-rhel9-4.16.3.tar.gz -C /tmp/openshift-client && \
+    cp -pr /tmp/openshift-client/kubectl /usr/local/bin/ && \
+    rm -rf /tmp/openshift-client
+
+
+COPY $PODVM_IMAGE_SRC $PODVM_IMAGE_PATH
+
+WORKDIR /image/
